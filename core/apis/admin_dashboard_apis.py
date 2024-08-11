@@ -235,7 +235,7 @@ class ProfessionalsPortfoliosCreateListUpdateDeleteView(APIView):
 
     def post(self, request, pk):
         data = request.data.copy()
-        data["id"] = pk
+        data["professional_id"] = pk
         serializer = PortfoliosCreateSerializer(data=data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
@@ -252,23 +252,8 @@ class ProfessionalsPortfoliosCreateListUpdateDeleteView(APIView):
 
         professional = get_object_or_404(Professionals, id=pk)
         portfolios = Portfolios.objects.filter(professional=professional)
-
-        grouped_portfolios = {}
-        for portfolio in portfolios:
-            if portfolio.title not in grouped_portfolios:
-                grouped_portfolios[portfolio.title] = []
-            grouped_portfolios[portfolio.title].append({"id": portfolio.id, "image": portfolio.image})
-
-        response_data = [
-            {
-                "title_id": images[0]["id"],
-                "title": title,
-                "images": images
-            }
-            for title, images in grouped_portfolios.items()
-        ]
         
-        serializer = PortfoliosListSerializer(response_data, many=True, context={'request': request})
+        serializer = PortfoliosListSerializer(portfolios, many=True, context={'request': request})
 
         return Response(serializer.data, status=status.HTTP_200_OK)
     
@@ -277,8 +262,6 @@ class ProfessionalsPortfoliosCreateListUpdateDeleteView(APIView):
         Delete particular portfolio(title) with all corresponding
         images of a specific professional.
         """
-        request.data["id"] = pk
-
         serializer = PortfoliosDeleteSerializer(data=request.data)
         if serializer.is_valid():
             portfolio = serializer.validated_data["portfolio"]

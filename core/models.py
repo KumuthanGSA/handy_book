@@ -167,12 +167,22 @@ class Professionals(models.Model):
 class Portfolios(models.Model):
     professional = models.ForeignKey(Professionals, on_delete=models.CASCADE, related_name="porfolios")
     title = models.CharField(max_length=250)
-    image = models.ImageField(upload_to='professionals/portfolios')
-    created_on = models.DateField(auto_now_add=True)
+    created_on = models.DateTimeField(auto_now_add=True)
     last_edited = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.professional} - {self.title}"
+        return f"{self.professional.name} - {self.title}"
+    
+
+class PortfolioImages(models.Model):
+    portfolio = models.ForeignKey(Portfolios, related_name='images', on_delete=models.CASCADE)
+    image = models.ImageField(upload_to='professionals/portfolios')
+    caption = models.CharField(max_length=250, blank=True, null=True)
+    created_on = models.DateTimeField(auto_now_add=True)
+    last_edited = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:
+        return f'{self.portfolio.title} - Image {self.id}'
 
 
 """

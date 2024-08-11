@@ -13,7 +13,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from phonenumber_field.serializerfields import PhoneNumberField
 
 # Local imports
-from core.models import Books, BooksReview, CustomUser, AdminUsers, Events, Materials, MaterialsReview, MobileUsers, Notifications, Portfolios, Professionals, ProReview, Transactions
+from core.models import Books, BooksReview, CustomUser, AdminUsers, Events, Materials, MaterialsReview, MobileUsers, Notifications, PortfolioImages, Portfolios, Professionals, ProReview, Transactions
 
 # Create your serializers here
 
@@ -264,72 +264,68 @@ class ProfessionalsDetailSerializer(serializers.ModelSerializer):
         ]
 
         return formatted_portfolios
-    
+
 
 class PortfoliosCreateSerializer(serializers.Serializer):
-    id = serializers.IntegerField()
     title = serializers.CharField(max_length=250)
     images = serializers.ListField(child=serializers.ImageField())
+    professional_id = serializers.IntegerField()
 
     def validate(self, attrs):
         errors = {}
 
         try:
-            professional = Professionals.objects.get(id=attrs["id"])
+            professional = Professionals.objects.get(id=attrs["professional_id"])
             attrs["professional"] = professional
         except:
             errors.setdefault("id", []).append("Id does not exist.")
-        
-        if Portfolios.objects.filter(professional=professional, title=attrs["title"]).exists():
-            errors.setdefault("title", []).append("Title already exists.")
 
         if errors:
             raise serializers.ValidationError(errors)
         
         return attrs
-
-    def save(self):
+    
+    def create(self, validated_data):
         title = self.validated_data["title"]
-        images = self.validated_data["images"]
         professional = self.validated_data["professional"]
+        images = validated_data.pop('images')
+        
+        portfolio = Portfolios.objects.create(professional=professional, title=title)
 
-        created_portfolios = []
         for image in images:
-            portfolio = Portfolios.objects.create(professional=professional, title=title, image=image)
-            created_portfolios.append(portfolio)
+            PortfolioImages.objects.create(portfolio=portfolio, image=image)
 
-        return created_portfolios
+        return portfolio
     
     
 class PortfoliosImagesSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Portfolios
+        model = PortfolioImages
         fields = ["id", "image"]
 
-class PortfoliosListSerializer(serializers.Serializer):
-    title_id = serializers.IntegerField()
-    title = serializers.CharField(max_length=250)
-    images = serializers.ListField(child=PortfoliosImagesSerializer())
+class PortfoliosListSerializer(serializers.ModelSerializer):
+    images = PortfoliosImagesSerializer(many=True, read_only=True)
+    title_id = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Portfolios
+        fields = ['title_id', 'title', 'images']
+    
+    def get_title_id(self, obj):
+        return obj.id
 
 
 class PortfoliosDeleteSerializer(serializers.Serializer):
-    id = serializers.IntegerField()
-    title = serializers.CharField(max_length=250)
+    title_id = serializers.IntegerField()
 
     def validate(self, attrs):
         errors = {}
 
         try:
-            professional = Professionals.objects.get(id=attrs["id"])
-            portfolio = Portfolios.objects.filter(professional=professional, title=attrs["title"])
-
-            attrs["professional"] = professional
+            portfolio = Portfolios.objects.get(id=attrs["title_id"])
             attrs["portfolio"] = portfolio
 
-            if not portfolio:
-                errors.setdefault("title", []).append("Title does not exist.")
-
-        except Professionals.DoesNotExist:
+        except Portfolios.DoesNotExist:
             errors.setdefault("id", []).append("Id does not exist.")
 
         if errors:
@@ -345,7 +341,7 @@ class PortfoliosImagesDeleteSerializer(serializers.Serializer):
         errors = {}
 
         try:
-            image = Portfolios.objects.get(id=attrs["id"])
+            image = PortfolioImages.objects.get(id=attrs["id"])
             attrs["image"] = image
 
         except Portfolios.DoesNotExist:
@@ -365,20 +361,21 @@ class PortfoliosUpdateSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         errors = {}
+
         try:
             professional = Professionals.objects.get(id=attrs["id"])
-            portfolio = Portfolios.objects.filter(professional=professional, id=attrs["title_id"]).first()
-            portfolio = Portfolios.objects.filter(professional=professional, title=portfolio.title)
-
-            if not portfolio:
-                errors.setdefault("title_id", []).append("portfolio does not exist.")
-            
-            attrs["portfolio"] = portfolio
             attrs["professional"] = professional
 
         except Professionals.DoesNotExist:
             errors.setdefault("id", []).append("Id does not exist.")
             raise serializers.ValidationError(errors)
+        
+        try:
+            portfolio = Portfolios.objects.get(professional=professional, id=attrs["title_id"])      
+            attrs["portfolio"] = portfolio
+
+        except Portfolios.DoesNotExist:
+            errors.setdefault("title_id", []).append("ID does not exist.")
         
         if errors:
             raise serializers.ValidationError(errors)
@@ -392,11 +389,12 @@ class PortfoliosUpdateSerializer(serializers.Serializer):
         portfolio = self.validated_data["portfolio"]
         professional = self.validated_data["professional"]
 
-        if not portfolio.first().title == title:
-            portfolio.update(title=title)
+        if not portfolio.title == title:
+            portfolio.title=title
+            portfolio.save()
 
         for image in images:
-            portfolio = Portfolios.objects.create(professional=professional, title=title, image=image)
+            portfolio_images = PortfolioImages.objects.create(portfolio=portfolio, image=image)
 
         return portfolio
 

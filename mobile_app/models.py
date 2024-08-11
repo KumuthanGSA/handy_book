@@ -77,6 +77,8 @@ class OrderItem(models.Model):
     material = models.ForeignKey(Materials, on_delete=models.CASCADE, null=True, blank=True)
     quantity = models.PositiveIntegerField(default=1)
     price = models.FloatField()
+    created_on = models.DateTimeField(auto_now_add=True)
+    last_edited = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f'Item {self.id} - {self.order.id}'
