@@ -269,7 +269,7 @@ class CategoryMaterialsListView(APIView):
             instances = Materials.objects.filter(type=material)[:15]
             response[material] =  ListMaterialsSerializer(instances, many=True, context={"request": request}).data
 
-        return Response(response, status=status.HTTP_200_OK)
+        return Response({"detail": response}, status=status.HTTP_200_OK)
     
 
 class MaterialsDetailedView(APIView):
