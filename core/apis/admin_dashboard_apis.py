@@ -1,10 +1,11 @@
 import datetime
 import json
 from django.shortcuts import get_object_or_404
-from django.db.models import Q, Sum, Avg
+from django.db.models import Q, Sum, Avg, Max
 from django.db.models.aggregates import Count
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
+from django.utils.timesince import timesince
 
 # Third party imports
 from rest_framework.views import APIView
@@ -866,6 +867,12 @@ class TransactionListCreateUpdateView(APIView):
 class KeyMatrixStatisticsView(APIView):
     permission_classes = [IsAuthenticatedAndAdmin]
 
+    def get_last_updated_time(self, model):
+        last_edited = model.objects.aggregate(last_edited=Max('last_edited'))['last_edited']
+        if last_edited:
+            return last_edited
+        return None
+
     def get(self, request):
         """
         API endpoint to retrieve all the data needed for admin_dashboard's
@@ -877,11 +884,27 @@ class KeyMatrixStatisticsView(APIView):
         total_registered_users = MobileUsers.count()
         total_transactions = Transactions.count()
 
+        last_updated_professionals = self.get_last_updated_time(Professionals)
+        last_updated_materials = self.get_last_updated_time(Materials)
+        last_updated_users = self.get_last_updated_time(MobileUsers)
+        last_updated_transactions = self.get_last_updated_time(Transactions)
+
+        all_last_updated = [
+            last_updated_professionals,
+            last_updated_materials,
+            last_updated_users,
+            last_updated_transactions,
+        ]
+        most_recent_update = max(filter(None, all_last_updated))
+
+        last_updated = f"Updated {timesince(most_recent_update)} ago" if most_recent_update else "No updates yet"
+
         response_data = {
             "total_professionals": total_professionals,
             "total_materials": total_materials,
             "total_registered_users": total_registered_users,
             "total_transactions": total_transactions,
+            "last_updated": last_updated,
         }
 
         return Response(response_data, status=status.HTTP_200_OK)
@@ -1279,3 +1302,15 @@ class NotificationsFCMHTTPRetrieveUpdateDeleteView(APIView):
             return Response({"detail": "Notification updated successfully!"}, status=status.HTTP_200_OK)
         
         return Response({"detail": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request, pk):
+        """
+        Delete specific material.
+        """
+
+        notification = get_object_or_404(Notifications, id=pk)
+        try:
+            notification.delete()
+            return Response({"detail": "Notification deleted successfully!!"}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)

@@ -214,56 +214,15 @@ class ProfessionalsUpdateSerializer(serializers.ModelSerializer):
 
 class ProReviewSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source='created_by.related_user.first_name', read_only=True)
+    image = serializers.ImageField(source='created_by.related_user.image', read_only=True)
     role = serializers.SerializerMethodField()
 
     class Meta:
         model = ProReview
-        fields = ['created_by_name', 'rating', 'review', 'role']
+        fields = ['created_by_name', 'image', 'rating', 'review', 'role']
 
     def get_role(self, obj):
         return 'admin' if obj.created_by.is_superuser else 'client'
-
-
-class ProfessionalsDetailSerializer(serializers.ModelSerializer):
-    portfolios =  serializers.SerializerMethodField()
-    reviews = ProReviewSerializer(many=True, read_only=True, source='review_professional')
-    average_ratings = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Professionals
-        fields = [
-            'name', 'phone_no', 'email', 'expertise', 'location', 'about', 'experiance', 
-            'banner', 'website', 'created_on', 'last_edited', 'portfolios', 'reviews', 
-            'average_ratings'
-        ]
-
-    def get_average_ratings(self, obj):
-        average_rating = obj.review_professional.aggregate(Avg('rating'))['rating__avg']
-
-        return average_rating if average_rating is not None else 0
-    
-    def get_portfolios(self, obj):
-        request = self.context.get('request')
-        portfolios = obj.porfolios.all()
-
-        grouped_portfolios = {}
-        for portfolio in portfolios:
-            if portfolio.title not in grouped_portfolios:
-                grouped_portfolios[portfolio.title] = []
-            grouped_portfolios[portfolio.title].append({
-                "id": portfolio.id,
-                "image": request.build_absolute_uri(portfolio.image.url)
-            })
-
-        formatted_portfolios = [
-            {
-                "title": title,
-                "images": images
-            }
-            for title, images in grouped_portfolios.items()
-        ]
-
-        return formatted_portfolios
 
 
 class PortfoliosCreateSerializer(serializers.Serializer):
@@ -303,6 +262,7 @@ class PortfoliosImagesSerializer(serializers.ModelSerializer):
         model = PortfolioImages
         fields = ["id", "image"]
 
+
 class PortfoliosListSerializer(serializers.ModelSerializer):
     images = PortfoliosImagesSerializer(many=True, read_only=True)
     title_id = serializers.SerializerMethodField()
@@ -312,7 +272,25 @@ class PortfoliosListSerializer(serializers.ModelSerializer):
         fields = ['title_id', 'title', 'images']
     
     def get_title_id(self, obj):
+        print(obj, "here")
         return obj.id
+    
+
+class ProfessionalsDetailSerializer(serializers.ModelSerializer):
+    portfolios =  PortfoliosListSerializer(many=True, read_only=True)
+    reviews = ProReviewSerializer(many=True, read_only=True)
+    average_ratings = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Professionals
+        fields = [
+            'name', 'phone_no', 'email', 'expertise', 'location', 'about', 'experiance', 
+            'banner', 'website', 'created_on', 'last_edited', 'portfolios', 'reviews', 
+            'average_ratings'
+        ]
+
+    def get_average_ratings(self, obj):
+        return obj.average_ratings 
 
 
 class PortfoliosDeleteSerializer(serializers.Serializer):

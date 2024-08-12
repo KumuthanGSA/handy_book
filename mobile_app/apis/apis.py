@@ -11,7 +11,7 @@ from rest_framework import status
 from core.apis.helpers import listdistinctfieldvalues
 from core.apis.serializers import BooksActivitySerializer, EventsActivitySerializer, MaterialsActivitySerializer, ProfessionalsActivitySerializer
 from mobile_app.models import Cart, Favorite, Order, OrderItem
-from .serializers import AddBooksReviewSerializer, AddCartSerializer, AddFavoriteSerializer, AddMaterialsReviewSerializer, AddProfessionalsReviewSerializer, AddressCreateListSerializer, AddressUpdateSerializer, BooksDetaledRetrieveSerializer, BooksListSerializer, CartItemSerializer, CartSerializer, EditUserProfileSerializer, HomeSearchSerializer, ListMaterialsSerializer, MaterialsDetailedRetrieveSerializer, OrderSerializer, ProfessionalsDetailSerializer, RemoveFavoriteSeializer, TopBrandsListSerializer, UpdateCartQuantitySerializer, UserLogoutSerializer, UserRegisterSerializer, GetOTPSerializer, OTPVerficationSerializer, ProfessionalsListSerializer
+from .serializers import AddBooksReviewSerializer, AddCartSerializer, AddFavoriteSerializer, AddMaterialsReviewSerializer, AddProfessionalsReviewSerializer, AddressCreateListSerializer, AddressUpdateSerializer, BooksDetaledRetrieveSerializer, BooksListSerializer, CartItemSerializer, CartSerializer, EditUserProfileSerializer, HomeSearchSerializer, ListMaterialsSerializer, MaterialsDetailedRetrieveSerializer, OrderSerializer, ProfessionalsDetailSerializer, RemoveFavoriteSeializer, ThirdPartySigninSerializer, ThirdPartySignupSerializer, TopBrandsListSerializer, UpdateCartQuantitySerializer, UserLogoutSerializer, UserRegisterSerializer, GetOTPSerializer, OTPVerficationSerializer, ProfessionalsListSerializer
 from .pagination import BooksPagination, FavoritesPagination, MaterialsPagination, ProfessionalsPagination, TopBrandsPafination
 from core.models import Addresses, Books, Events, Materials, MobileUsers, CustomUser, Professionals
 from core.apis.permissions import IsAuthenticatedAndInUserGroup
@@ -100,6 +100,29 @@ class EditUserProfileView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 
+class ThirdPartySignupView(APIView):
+    def post(self, request):
+        referral_code = request.query_params.get("referral_code")
+        serializer = ThirdPartySignupSerializer(data=request.data, context={"referral_code": referral_code})
+        if serializer.is_valid():
+            user, message = serializer.save()
+
+            return Response({'detail': message}, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+class ThirdPartySigninView(APIView):
+    def post(self, request):
+        serializer = ThirdPartySigninSerializer(data=request.data)
+        if serializer.is_valid():
+            
+            tokens = serializer.save()
+            return Response(tokens, status=status.HTTP_202_ACCEPTED)  
+          
+        return Response({"detail": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+    
+
 # REFERRALS MODULE APIS ******
 class ReferralsRetrieveView(APIView):
     permission_classes = [IsAuthenticatedAndInUserGroup]
@@ -138,10 +161,10 @@ class NewListingsView(APIView):
         books = Books.objects.all().order_by('-created_on')[:15]
 
 
-        activities["professionals"] =  ProfessionalsActivitySerializer(professionals, many=True, context={"request": request}).data
-        activities["materials"] = MaterialsActivitySerializer(materials, many=True, context={"request": request}).data
-        activities["events"] = EventsActivitySerializer(events, many=True, context={"request": request}).data
-        activities["books"] = BooksActivitySerializer(books, many=True, context={"request": request}).data
+        activities["professionals"] =  ProfessionalsActivitySerializer(professionals, many=True).data
+        activities["materials"] = MaterialsActivitySerializer(materials, many=True).data
+        activities["events"] = EventsActivitySerializer(events, many=True).data
+        activities["books"] = BooksActivitySerializer(books, many=True).data
         
 
         return Response(activities, status=status.HTTP_200_OK)
@@ -205,7 +228,7 @@ class ListProfessinalsView(APIView):
 
         pagination = ProfessionalsPagination()
         paginated_professionals = pagination.paginate_queryset(professionals, request)
-        serializer = ProfessionalsListSerializer(paginated_professionals, many=True, context={"request": request})
+        serializer = ProfessionalsListSerializer(paginated_professionals, many=True, context = {"user": request.user})
         return pagination.get_paginated_response(serializer.data)
     
 
@@ -219,7 +242,7 @@ class ProfessionalsDetailView(APIView):
 
         professional = get_object_or_404(Professionals, id=pk)
 
-        serializer = ProfessionalsDetailSerializer(professional, context={'request': request})
+        serializer = ProfessionalsDetailSerializer(professional, context={'user': request.user})
 
         return Response(serializer.data, status=status.HTTP_200_OK)
     
@@ -246,14 +269,14 @@ class ListExpertiseView(APIView):
     permission_classes = [IsAuthenticatedAndInUserGroup]
 
     def get(self, request):
-        return Response(listdistinctfieldvalues(Professionals, "expertise"), status=status.HTTP_200_OK)
+        return Response({"detail": listdistinctfieldvalues(Professionals, "expertise")}, status=status.HTTP_200_OK)
     
 
 class LocationListView(APIView):
     permission_classes = [IsAuthenticatedAndInUserGroup]
 
     def get(self, request):
-        return Response(listdistinctfieldvalues(Professionals, "location"), status=status.HTTP_200_OK)
+        return Response({"detail": listdistinctfieldvalues(Professionals, "location")} , status=status.HTTP_200_OK)
     
 
 # Materials APIS *******
@@ -263,13 +286,16 @@ class CategoryMaterialsListView(APIView):
     def get(self, request):
         materials = listdistinctfieldvalues(Materials, "type")
 
-        response = {}
+        response = []
 
         for material in materials:
+            data = {}
             instances = Materials.objects.filter(type=material)[:15]
-            response[material] =  ListMaterialsSerializer(instances, many=True, context={"request": request}).data
+            data["category"] = material
+            data["items"] =  ListMaterialsSerializer(instances, many=True, context={"user": request.user}).data
+            response.append(data)
 
-        return Response({"detail": response}, status=status.HTTP_200_OK)
+        return Response({"data":response}, status=status.HTTP_200_OK)
     
 
 class MaterialsDetailedView(APIView):
@@ -282,7 +308,7 @@ class MaterialsDetailedView(APIView):
 
         material = get_object_or_404(Materials, id=pk)
 
-        serializer = MaterialsDetailedRetrieveSerializer(material, context={'request': request})
+        serializer = MaterialsDetailedRetrieveSerializer(material, context={'user': request.user})
 
         return Response(serializer.data, status=status.HTTP_200_OK)
     
@@ -328,7 +354,7 @@ class MaterialsListFiltersView(APIView):
 
         pagination = MaterialsPagination()
         paginated_materials = pagination.paginate_queryset(materials, request)
-        serializer = ListMaterialsSerializer(paginated_materials, many=True, context={"request": request})
+        serializer = ListMaterialsSerializer(paginated_materials, many=True, context={"user": request.user})
         return pagination.get_paginated_response(serializer.data)
     
 
@@ -349,6 +375,20 @@ class AddMaterialsReviewView(APIView):
             return Response({"detail": "Review added successfully!"}, status=status.HTTP_200_OK)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+class MaterialsTypeListView(APIView):
+    permission_classes = [IsAuthenticatedAndInUserGroup]
+
+    def get(self, request):
+        return Response({"detail": listdistinctfieldvalues(Materials, "type")}, status=status.HTTP_200_OK)
+    
+
+class MaterialsSupplierListView(APIView):
+    permission_classes = [IsAuthenticatedAndInUserGroup]
+
+    def get(self, request):
+        return Response({"detail": listdistinctfieldvalues(Materials, "supplier_name")}, status=status.HTTP_200_OK)
     
 
 # BOOKS APIS *******
@@ -611,8 +651,8 @@ class AddToCartAPIView(APIView):
         if not cart_items.exists():
             return Response({"detail": "Cart is empty"}, status=status.HTTP_200_OK)
 
-        serializer = CartSerializer(cart_items, many=True, context={"request": request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        serializer = CartSerializer(cart_items, many=True)
+        return Response({"detail": serializer.data}, status=status.HTTP_200_OK)
 
     
     def patch(self, request, *args, **kwargs):

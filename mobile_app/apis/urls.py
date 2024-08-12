@@ -4,8 +4,7 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 
 # Local imports
-from core.apis.admin_dashboard_apis import ListExpertiseView, LocationListView, MaterialsSupplierListView, MaterialsTypeListView
-from .apis import AddBooksReviewView, AddToCartAPIView, EditUserProfileView, FavoriteAddListView, AddMaterialsReviewView, AddProfessionalReviewView, AddressRetrieveUpdateView, BooksDetailedRetrieveView, HomeSearchView, ListBooksView, ListProfessinalsView, MaterialsDetailedView, MaterialsListFiltersView, CategoryMaterialsListView, NewListingsView, ProfessionalsDetailView, ReferralsRetrieveView, RemoveFavoriteView, TopBrandsListAPIView, UserLogoutView, UserRegisterView, UserGetOTPView, UserOTPVerificationView, AddressCreateListView
+from .apis import AddBooksReviewView, AddToCartAPIView, EditUserProfileView, FavoriteAddListView, AddMaterialsReviewView, AddProfessionalReviewView, AddressRetrieveUpdateView, BooksDetailedRetrieveView, HomeSearchView, ListBooksView, ListExpertiseView, ListProfessinalsView, LocationListView, MaterialsDetailedView, MaterialsListFiltersView, CategoryMaterialsListView, MaterialsSupplierListView, MaterialsTypeListView, NewListingsView, ProfessionalsDetailView, ReferralsRetrieveView, RemoveFavoriteView, ThirdPartySigninView, ThirdPartySignupView, TopBrandsListAPIView, UserLogoutView, UserRegisterView, UserGetOTPView, UserOTPVerificationView, AddressCreateListView
 
 urlpatterns = [
     # User management
@@ -14,6 +13,8 @@ urlpatterns = [
     path('validate_otp', UserOTPVerificationView.as_view()),
     path('refresh', TokenRefreshView.as_view(), name='user_token_refresh'),
     path('logout', UserLogoutView.as_view()),
+    path('thirdpartysignup', ThirdPartySignupView.as_view()),
+    path('thirdpartysignin', ThirdPartySigninView.as_view()),
     path('profile', EditUserProfileView.as_view()),
 
     # Referrals

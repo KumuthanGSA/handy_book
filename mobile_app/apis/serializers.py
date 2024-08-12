@@ -12,7 +12,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from phonenumber_field.serializerfields import PhoneNumberField
 
 #local imports
-from core.models import Addresses, Books, BooksReview, CustomUser, Materials, MaterialsReview, MobileUsers, ProReview, Professionals, Referrals, generate_referral_code
+from core.models import Addresses, Books, BooksReview, CustomUser, Materials, MaterialsReview, MobileUsers, PortfolioImages, Portfolios, ProReview, Professionals, Referrals, generate_referral_code
 from mobile_app.models import Cart, Favorite, Order, OrderItem
 
 
@@ -167,6 +167,104 @@ class UserLogoutSerializer(serializers.Serializer):
             raise serializers.ValidationError({"refresh": str(e)})
         
         return
+    
+
+class ThirdPartySignupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MobileUsers
+        fields = ['email', 'fcm_token']
+
+        extra_kwargs = {
+            'fcm_token': {'required': True, 'allow_blank': False, 'allow_null': False},
+        }
+
+
+    def validate(self, attrs):
+        referral_code = self.context.get("referral_code")
+
+        errors = {}
+
+        # Validate the referral code
+        if referral_code:
+            try:
+                referrer = MobileUsers.objects.get(referral_code=referral_code)
+                attrs['referrer'] = referrer
+            except MobileUsers.DoesNotExist:
+                errors.setdefault("referral_code", []).append("Code does not exist")
+
+        if errors:
+            raise serializers.ValidationError(errors)    
+
+        return attrs
+
+
+    def create(self, validated_data):
+        print(validated_data, "here")
+        referrer = validated_data.pop('referrer', None)
+        
+        # if any operation fails, the entire transaction will be rolled back.
+        with transaction.atomic():
+            # Creating a custom user
+            custom_user = CustomUser()
+            custom_user.save()
+
+            # Add the user to USER group
+            group, _ = Group.objects.get_or_create(name='USER')
+            custom_user.groups.add(group)
+
+            #  Creating a Mobile user
+            mobile_user = self.Meta.model(**validated_data)
+            mobile_user.user = custom_user
+            mobile_user.referral_code = generate_referral_code()
+            mobile_user.save()
+
+            message = "Mobile user registerd successfully!"
+
+            # Creating the referral
+            if referrer:
+                referral=Referrals.objects.create(referrer=referrer, referred=mobile_user)
+
+                # Add one new referral to referrer
+                referrer.total_referrels += 1
+                referrer.save()
+
+                message = "Mobile user with referrer created successfully!"
+
+        return mobile_user, message
+    
+
+class ThirdPartySigninSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate(self, attrs):
+        email = attrs.get('email')
+
+        # Check if the user exists
+        try:
+            user = MobileUsers.objects.get(email=email)
+        except MobileUsers.DoesNotExist:
+            raise serializers.ValidationError({"email": 'User does not exists'})
+        
+        attrs['custom_user'] = user.user
+        attrs['user'] = user
+        return attrs
+    
+    def save(self):
+        custom_user = self.validated_data['custom_user']
+        user = self.validated_data['user']
+
+        # Generate tokens (using Simple JWT library)
+        refresh = RefreshToken.for_user(custom_user)
+        access = refresh.access_token 
+
+        tokens = {
+            'access': str(access),
+            'refresh': str(refresh),
+            'image': user.image if user.image else "",
+            'name': user.first_name if user.first_name else ""
+        }
+
+        return tokens
 
 
 class HomeSearchSerializer(serializers.Serializer):
@@ -222,27 +320,47 @@ class ProfessionalsListSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "location", "banner", "expertise", "phone_no", "is_liked"]
     
     def get_is_liked(self, obj):
-        request = self.context["request"]
-        user = MobileUsers.objects.get(user=request.user)
+        user = self.context["user"]
+        user = MobileUsers.objects.get(user=user)
         
         return user.favorites.filter(type="professional", item_id=obj.id).exists()
 
 
 class ProReviewSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source='created_by.related_user.first_name', read_only=True)
+    image = serializers.ImageField(source='created_by.related_user.image', read_only=True)
     role = serializers.SerializerMethodField()
 
     class Meta:
         model = ProReview
-        fields = ['created_by_name', 'rating', 'review', 'role']
+        fields = ['created_by_name', 'image', 'rating', 'review', 'role']
 
     def get_role(self, obj):
         return 'admin' if obj.created_by.is_superuser else 'client'
+    
+
+class PortfoliosImagesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PortfolioImages
+        fields = ["id", "image"]
+
+
+class PortfoliosListSerializer(serializers.ModelSerializer):
+    images = PortfoliosImagesSerializer(many=True, read_only=True)
+    title_id = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Portfolios
+        fields = ['title_id', 'title', 'images']
+    
+    def get_title_id(self, obj):
+        print(obj, "here")
+        return obj.id
 
 
 class ProfessionalsDetailSerializer(serializers.ModelSerializer):
-    portfolios =  serializers.SerializerMethodField()
-    reviews = ProReviewSerializer(many=True, read_only=True, source='review_professional')
+    portfolios =  PortfoliosListSerializer(many=True, read_only=True)
+    reviews = ProReviewSerializer(many=True, read_only=True)
     average_ratings = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()
 
@@ -257,32 +375,9 @@ class ProfessionalsDetailSerializer(serializers.ModelSerializer):
     def get_average_ratings(self, obj):
         return obj.average_ratings
     
-    def get_portfolios(self, obj):
-        request = self.context.get('request')
-        portfolios = obj.porfolios.all()
-
-        grouped_portfolios = {}
-        for portfolio in portfolios:
-            if portfolio.title not in grouped_portfolios:
-                grouped_portfolios[portfolio.title] = []
-            grouped_portfolios[portfolio.title].append({
-                "id": portfolio.id,
-                "image": request.build_absolute_uri(portfolio.image.url)
-            })
-
-        formatted_portfolios = [
-            {
-                "title": title,
-                "images": images
-            }
-            for title, images in grouped_portfolios.items()
-        ]
-
-        return formatted_portfolios
-    
     def get_is_liked(self, obj):
-        request = self.context["request"]
-        user = MobileUsers.objects.get(user=request.user)
+        user = self.context["user"]
+        user = MobileUsers.objects.get(user=user)
         
         return user.favorites.filter(type="professional", item_id=obj.id).exists()
     
@@ -303,12 +398,12 @@ class ListMaterialsSerializer(serializers.ModelSerializer):
         model = Materials
         fields = [
             "id", "name", "supplier_name", "availability", "image", "title", "is_liked", 
-            "price", "discount_percentage", "discounted_price", "average_ratings" 
+            "price", "discount_percentage", "discounted_price", "average_ratings", "type"
         ]
     
     def get_is_liked(self, obj):
-        request = self.context["request"]
-        user = MobileUsers.objects.get(user=request.user)
+        user = self.context["user"]
+        user = MobileUsers.objects.get(user=user)
         
         return user.favorites.filter(type="material", item_id=obj.id).exists()
     
@@ -349,8 +444,8 @@ class MaterialsDetailedRetrieveSerializer(serializers.ModelSerializer):
         return obj.discounted_price
     
     def get_is_liked(self, obj):
-        request = self.context["request"]
-        user = MobileUsers.objects.get(user=request.user)
+        user = self.context["user"]
+        user = MobileUsers.objects.get(user=user)
         
         return user.favorites.filter(type="material", item_id=obj.id).exists()
 

@@ -84,7 +84,7 @@ class MobileUsers(models.Model):
     last_name = models.CharField(max_length=150)
     image = models.ImageField(upload_to='profile_images/', blank=True, null=True)
     email = models.EmailField(unique=True)
-    phone_no = PhoneNumberField(region="IN", unique=True)
+    phone_no = PhoneNumberField(region="IN", unique=True, null=True, blank=True, default=None)
     created_on = models.DateTimeField(auto_now_add=True)
     last_edited = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
@@ -165,7 +165,7 @@ class Professionals(models.Model):
 
 
 class Portfolios(models.Model):
-    professional = models.ForeignKey(Professionals, on_delete=models.CASCADE, related_name="porfolios")
+    professional = models.ForeignKey(Professionals, on_delete=models.CASCADE, related_name="portfolios")
     title = models.CharField(max_length=250)
     created_on = models.DateTimeField(auto_now_add=True)
     last_edited = models.DateTimeField(auto_now=True)
