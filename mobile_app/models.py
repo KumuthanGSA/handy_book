@@ -52,6 +52,7 @@ class Cart(models.Model):
 
 class Order(models.Model):
     ORDER_STATUS_CHOICES = [
+        ('confirmed', 'Confirmed'),
         ('pending', 'Pending'),
         ('packed', 'Packed'),
         ('shipped', 'Shipped'),
@@ -64,6 +65,11 @@ class Order(models.Model):
     total_price = models.FloatField(validators=[MinValueValidator(0)])
     status = models.CharField(max_length=20, choices=ORDER_STATUS_CHOICES, default='pending')
     created_on = models.DateTimeField(auto_now_add=True)
+    confirmed_on = models.DateTimeField(blank=True, null=True)
+    packed_on = models.DateTimeField(blank=True, null=True)
+    shipped_on = models.DateTimeField(blank=True, null=True)
+    delivered_on = models.DateTimeField(blank=True, null=True)
+    cancelled_on = models.DateTimeField(blank=True, null=True)
     last_edited = models.DateTimeField(auto_now=True)
     address = models.ForeignKey(Addresses, on_delete=models.DO_NOTHING, related_name="orders")
 
@@ -84,23 +90,23 @@ class OrderItem(models.Model):
         return f'Item {self.id} - {self.order.id}'
     
 
-# class Payment(models.Model):
-#     PAYMENT_TYPE_CHOICES = [
-#         ('cash on delivery', 'Cash on Delivery'), ('upi', 'UPI')
-#     ]
+class Payment(models.Model):
+    PAYMENT_TYPE_CHOICES = [
+        ('cash on delivery', 'Cash on Delivery'), ('upi', 'UPI')
+    ]
 
-#     PAYMENT_STATUS_CHOICES = [
-#         ('pending', 'Pending'), ('completed', 'Completed'), ('failed', 'Failed'),
-#     ]
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'Pending'), ('completed', 'Completed'), ('failed', 'Failed'),
+    ]
 
-#     order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='payment')
-#     amount = models.FloatField(validators=[MinValueValidator(0)])
-#     status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
-#     type = models.CharField(max_length=100, choices=PAYMENT_TYPE_CHOICES)
-#     created_on = models.DateTimeField(auto_now_add=True)
-#     last_edited = models.DateTimeField(auto_now_add=True)
+    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='payment')
+    amount = models.FloatField(validators=[MinValueValidator(0)])
+    status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
+    type = models.CharField(max_length=100, choices=PAYMENT_TYPE_CHOICES)
+    created_on = models.DateTimeField(auto_now_add=True)
+    last_edited = models.DateTimeField(auto_now_add=True)
 
-#     def __str__(self):
-#         return f'Payment {self.id} - {self.order.id}'
+    def __str__(self):
+        return f'Payment {self.id} - {self.order.id}'
 
     

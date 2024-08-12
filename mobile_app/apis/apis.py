@@ -680,10 +680,12 @@ class CreateOrderAPI(APIView):
 
     def post(self, request, *args, **kwargs):
         address_id = request.data.get("address")
+        cart_ids = request.data.get()
         user = get_object_or_404(MobileUsers, user=request.user)
         address = get_object_or_404(Addresses, user=user, id=address_id)
 
-        cart_items = Cart.objects.filter(user=user)
+
+        cart_items = Cart.objects.filter(id__in=cart_ids)
         
         if not cart_items.exists():
             return Response({"detail": "Cart is empty"}, status=status.HTTP_400_BAD_REQUEST)
