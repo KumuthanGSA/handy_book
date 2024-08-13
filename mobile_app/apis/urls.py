@@ -4,7 +4,7 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 
 # Local imports
-from .apis import AddBooksReviewView, AddToCartAPIView, EditUserProfileView, FavoriteAddListView, AddMaterialsReviewView, AddProfessionalReviewView, AddressRetrieveUpdateView, BooksDetailedRetrieveView, HomeSearchView, ListBooksView, ListExpertiseView, ListProfessinalsView, LocationListView, MaterialsDetailedView, MaterialsListFiltersView, CategoryMaterialsListView, MaterialsSupplierListView, MaterialsTypeListView, NewListingsView, ProfessionalsDetailView, ReferralsRetrieveView, RemoveFavoriteView, ThirdPartySigninView, ThirdPartySignupView, TopBrandsListAPIView, UserLogoutView, UserRegisterView, UserGetOTPView, UserOTPVerificationView, AddressCreateListView
+from .apis import AddBooksReviewView, AddToCartAPIView, CreateOrderAPI, EditUserProfileView, FavoriteAddListView, AddMaterialsReviewView, AddProfessionalReviewView, AddressRetrieveUpdateView, BooksDetailedRetrieveView, HomeSearchView, ListBooksView, ListExpertiseView, ListProfessinalsView, LocationListView, MaterialsDetailedView, MaterialsListFiltersView, CategoryMaterialsListView, MaterialsSupplierListView, MaterialsTypeListView, NewListingsView, ProfessionalsDetailView, ReferralsRetrieveView, RemoveFavoriteView, ThirdPartySigninView, ThirdPartySignupView, TopBrandsListAPIView, UserLogoutView, UserRegisterView, UserGetOTPView, UserOTPVerificationView, AddressCreateListView
 
 urlpatterns = [
     # User management
@@ -55,4 +55,7 @@ urlpatterns = [
 
     #Cart
     path('cart', AddToCartAPIView.as_view()),
+
+    # Orders
+    path('orders', CreateOrderAPI.as_view()),
 ]

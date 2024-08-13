@@ -60,7 +60,7 @@ class Order(models.Model):
         ('cancelled', 'Cancelled'),
     ]
 
-    order_id = models.CharField(max_length=8, primary_key=True, default=generate_orderid, editable=False)
+    id = models.CharField(max_length=8, primary_key=True, default=generate_orderid, editable=False)
     user = models.ForeignKey(MobileUsers, on_delete=models.CASCADE, related_name='orders')
     total_price = models.FloatField(validators=[MinValueValidator(0)])
     status = models.CharField(max_length=20, choices=ORDER_STATUS_CHOICES, default='pending')
@@ -92,7 +92,7 @@ class OrderItem(models.Model):
 
 class Payment(models.Model):
     PAYMENT_TYPE_CHOICES = [
-        ('cash on delivery', 'Cash on Delivery'), ('upi', 'UPI')
+        ('cash on delivery', 'Cash on Delivery'), ('upi', 'UPI')    
     ]
 
     PAYMENT_STATUS_CHOICES = [
@@ -100,7 +100,7 @@ class Payment(models.Model):
     ]
 
     order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='payment')
-    amount = models.FloatField(validators=[MinValueValidator(0)])
+    amount = models.FloatField(null=True)
     status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
     type = models.CharField(max_length=100, choices=PAYMENT_TYPE_CHOICES)
     created_on = models.DateTimeField(auto_now_add=True)

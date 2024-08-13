@@ -10,7 +10,7 @@ from rest_framework import status
 # local imports
 from core.apis.helpers import listdistinctfieldvalues
 from core.apis.serializers import BooksActivitySerializer, EventsActivitySerializer, MaterialsActivitySerializer, ProfessionalsActivitySerializer
-from mobile_app.models import Cart, Favorite, Order, OrderItem
+from mobile_app.models import Cart, Favorite, Order, OrderItem, Payment
 from .serializers import AddBooksReviewSerializer, AddCartSerializer, AddFavoriteSerializer, AddMaterialsReviewSerializer, AddProfessionalsReviewSerializer, AddressCreateListSerializer, AddressUpdateSerializer, BooksDetaledRetrieveSerializer, BooksListSerializer, CartItemSerializer, CartSerializer, EditUserProfileSerializer, HomeSearchSerializer, ListMaterialsSerializer, MaterialsDetailedRetrieveSerializer, OrderSerializer, ProfessionalsDetailSerializer, RemoveFavoriteSeializer, ThirdPartySigninSerializer, ThirdPartySignupSerializer, TopBrandsListSerializer, UpdateCartQuantitySerializer, UserLogoutSerializer, UserRegisterSerializer, GetOTPSerializer, OTPVerficationSerializer, ProfessionalsListSerializer
 from .pagination import BooksPagination, FavoritesPagination, MaterialsPagination, ProfessionalsPagination, TopBrandsPafination
 from core.models import Addresses, Books, Events, Materials, MobileUsers, CustomUser, Professionals
@@ -408,7 +408,7 @@ class ListBooksView(APIView):
 
         pagination = BooksPagination()
         paginated_books = pagination.paginate_queryset(books, request)
-        serializer = BooksListSerializer(paginated_books, many=True, context={'request': request})
+        serializer = BooksListSerializer(paginated_books, many=True)
         return pagination.get_paginated_response(serializer.data)
 
 
@@ -422,7 +422,7 @@ class BooksDetailedRetrieveView(APIView):
 
         book = get_object_or_404(Books, id=pk)
 
-        serializer = BooksDetaledRetrieveSerializer(book, context={'request': request})
+        serializer = BooksDetaledRetrieveSerializer(book)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
     
@@ -475,7 +475,7 @@ class AddressCreateListView(APIView):
 
         serializer = AddressCreateListSerializer(addresses, many=True)
 
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response({"detail": serializer.data}, status=status.HTTP_200_OK)
 
 
 class AddressRetrieveUpdateView(APIView):
@@ -712,23 +712,24 @@ class AddToCartAPIView(APIView):
 
             cart_item.delete()
             return Response({"detail": "Item removed from cart"}, status=status.HTTP_200_OK)
-    
+  
 
 # ORDERS MODULE APIS *******
 class CreateOrderAPI(APIView):
     permission_classes = [IsAuthenticatedAndInUserGroup]
 
     def post(self, request, *args, **kwargs):
-        address_id = request.data.get("address")
-        cart_ids = request.data.get()
+        address_id = request.data.get("address_id")
+        cart_ids = request.data.get("cart_ids")
         user = get_object_or_404(MobileUsers, user=request.user)
         address = get_object_or_404(Addresses, user=user, id=address_id)
+        payment_type = request.data.get("payment_type")
 
 
         cart_items = Cart.objects.filter(id__in=cart_ids)
         
         if not cart_items.exists():
-            return Response({"detail": "Cart is empty"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Cart does not contains those items"}, status=status.HTTP_400_BAD_REQUEST)
         
         order = Order.objects.create(user=user, total_price=0, address=address)
 
@@ -752,9 +753,9 @@ class CreateOrderAPI(APIView):
         
         order.total_price = total_price
         order.save()
+        payment = Payment.objects.create(order=order, type=payment_type, status='pending', amount=total_price)
 
         # Clear the cart
         cart_items.delete()
 
-        serializer = OrderSerializer(order, context={"request": request})
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response({"order_id": order.id, "message": "Order Confirmed"}, status=status.HTTP_200_OK)

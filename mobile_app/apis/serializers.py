@@ -416,10 +416,11 @@ class ListMaterialsSerializer(serializers.ModelSerializer):
 
 class MaterialsReviewsSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source="created_by.first_name")
+    image = serializers.ImageField(source='created_by.image', read_only=True)
     role = serializers.CharField(default="client")
     class Meta:
         model = MaterialsReview
-        fields = ["created_by_name", "rating", "review", "role"]
+        fields = ["created_by_name", "image", "rating", "review", "role"]
     
 
 class MaterialsDetailedRetrieveSerializer(serializers.ModelSerializer):
@@ -483,10 +484,11 @@ class BooksListSerializer(serializers.ModelSerializer):
 
 class BooksReviewsSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source="created_by.first_name")
+    image = serializers.ImageField(source='created_by.image', read_only=True)
     role = serializers.CharField(default="client")
     class Meta:
         model = BooksReview
-        fields = ["created_by_name", "rating", "review", "role"]
+        fields = ["created_by_name", "image", "rating", "review", "role"]
 
 
 class BooksDetaledRetrieveSerializer(serializers.ModelSerializer):
@@ -840,3 +842,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def get_total_price(self, obj):
         return sum(item.price * item.quantity for item in obj.items.all())
+    
+
+class CreateOrderSerializer():
+    pass
