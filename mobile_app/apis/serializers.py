@@ -273,7 +273,7 @@ class HomeSearchSerializer(serializers.Serializer):
     def to_representation(self, instance):
         search = instance["search"]
         search = search.strip()
-        request = self.context.get("request")
+        user = self.context.get("user")
 
         representation = {}
 
@@ -290,8 +290,8 @@ class HomeSearchSerializer(serializers.Serializer):
             Q(title__icontains=search)
         )
 
-        professioanls = ProfessionalsListSerializer(professioanls, many=True, context={"request": request})
-        products = ListMaterialsSerializer(products, many=True, context={"request": request})
+        professioanls = ProfessionalsListSerializer(professioanls, many=True, context={"user": user})
+        products = ListMaterialsSerializer(products, many=True, context={"user": user})
 
         representation["professionals"] = professioanls.data
         representation["products"] = products.data

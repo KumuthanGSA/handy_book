@@ -189,7 +189,7 @@ class HomeSearchView(APIView):
     permission_classes = [IsAuthenticatedAndInUserGroup]
 
     def get(self, request):
-        serializer = HomeSearchSerializer(data=request.query_params, context={"request": request})
+        serializer = HomeSearchSerializer(data=request.query_params, context={"user": request.user})
         if serializer.is_valid():
             return Response(serializer.data, status=status.HTTP_200_OK)
         
@@ -228,7 +228,7 @@ class ListProfessinalsView(APIView):
 
         pagination = ProfessionalsPagination()
         paginated_professionals = pagination.paginate_queryset(professionals, request)
-        serializer = ProfessionalsListSerializer(paginated_professionals, many=True, context = {"user": request.user})
+        serializer = ProfessionalsListSerializer(paginated_professionals, many=True, context={"user": request.user})
         return pagination.get_paginated_response(serializer.data)
     
 
