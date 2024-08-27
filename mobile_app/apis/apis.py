@@ -460,7 +460,10 @@ class AddressCreateListView(APIView):
         if serializer.is_valid():
 
             address_data = serializer.validated_data
-            if address_data.get('is_default', False):
+            is_default = address_data.get('is_default', False)
+            print(is_default, "chech here")
+            if is_default:
+                print(is_default, "second here")
                 Addresses.objects.filter(user=mobile_user, is_default=True).update(is_default=False)
 
             serializer.save()
