@@ -235,7 +235,7 @@ class ProfessionalsPortfoliosCreateListUpdateDeleteView(APIView):
     permission_classes = [IsAuthenticatedAndAdmin]
 
     def post(self, request, pk):
-        data = request.data.copy()
+        data = request.data
         data["professional_id"] = pk
         serializer = PortfoliosCreateSerializer(data=data, context={'request': request})
         if serializer.is_valid():
@@ -414,7 +414,7 @@ class BooksRetriveUpdateDeleteView(APIView):
             serializer.save()
 
             return Response({"detail": "Book updated successfully!!"}, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"detail": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
     
     def delete(self, request, pk):
         """
@@ -526,7 +526,7 @@ class EventsRetriveUpdateDeleteView(APIView):
             serializer.save()
 
             return Response({"detail": "Event updated successfully!!"}, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"detail": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
     
     def delete(self, request, pk):
         """
@@ -631,7 +631,7 @@ class MaterialsRetriveUpdateDeleteView(APIView):
             serializer.save()
 
             return Response({"detail": "Material updated successfully!!"}, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"detail": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
     
     def delete(self, request, pk):
         """
