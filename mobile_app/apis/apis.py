@@ -408,7 +408,7 @@ class ListBooksView(APIView):
 
         pagination = BooksPagination()
         paginated_books = pagination.paginate_queryset(books, request)
-        serializer = BooksListSerializer(paginated_books, many=True)
+        serializer = BooksListSerializer(paginated_books, many=True, context={"user": request.user})
         return pagination.get_paginated_response(serializer.data)
 
 
@@ -422,7 +422,7 @@ class BooksDetailedRetrieveView(APIView):
 
         book = get_object_or_404(Books, id=pk)
 
-        serializer = BooksDetaledRetrieveSerializer(book)
+        serializer = BooksDetaledRetrieveSerializer(book, context={"user": request.user})
 
         return Response(serializer.data, status=status.HTTP_200_OK)
     

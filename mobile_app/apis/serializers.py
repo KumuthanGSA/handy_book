@@ -149,7 +149,7 @@ class OTPVerficationSerializer(serializers.Serializer):
         tokens = {
             'access': str(access),
             'refresh': str(refresh),
-            'image': user.image if user.image else "",
+            'image': str(user.image) if user.image else "",
             'name': user.first_name
         }
 
@@ -460,6 +460,7 @@ class AddMaterialsReviewSerializer(serializers.ModelSerializer):
 #BOOKS SERIALIZERS *******
 class BooksListSerializer(serializers.ModelSerializer):
     discounted_price = serializers.SerializerMethodField()
+    is_liked = serializers.SerializerMethodField()
 
     class Meta:
         model = Books
@@ -472,7 +473,8 @@ class BooksListSerializer(serializers.ModelSerializer):
             "description", 
             "additional_details", 
             "discount_percentage", 
-            "discounted_price"
+            "discounted_price",
+            "is_liked"
         ]
 
     def get_discounted_price(self, obj):
@@ -481,11 +483,18 @@ class BooksListSerializer(serializers.ModelSerializer):
         
         return obj.price - (obj.discount_percentage * obj.price)/100
     
+    def get_is_liked(self, obj):
+        user = self.context["user"]
+        user = MobileUsers.objects.get(user=user)
+        
+        return user.favorites.filter(type="book", item_id=obj.id).exists()
+    
 
 class BooksReviewsSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source="created_by.first_name")
     image = serializers.ImageField(source='created_by.image', read_only=True)
     role = serializers.CharField(default="client")
+
     class Meta:
         model = BooksReview
         fields = ["created_by_name", "image", "rating", "review", "role"]
@@ -496,6 +505,7 @@ class BooksDetaledRetrieveSerializer(serializers.ModelSerializer):
     reviews = BooksReviewsSerializer(many=True, read_only=True)
     average_ratings = serializers.SerializerMethodField()
     related_books = serializers.SerializerMethodField()
+    is_liked = serializers.SerializerMethodField()
 
     class Meta:
         model = Books
@@ -512,7 +522,8 @@ class BooksDetaledRetrieveSerializer(serializers.ModelSerializer):
             "last_edited", 
             "reviews", 
             "average_ratings",
-            "related_books"
+            "related_books",
+            "is_liked"
         ]
 
     def get_average_ratings(self, obj):
@@ -536,6 +547,12 @@ class BooksDetaledRetrieveSerializer(serializers.ModelSerializer):
         serializer = BooksListSerializer(related_books, many=True, context=self.context)
 
         return serializer.data
+    
+    def get_is_liked(self, obj):
+        user = self.context["user"]
+        user = MobileUsers.objects.get(user=user)
+        
+        return user.favorites.filter(type="book", item_id=obj.id).exists()
     
 class AddBooksReviewSerializer(serializers.ModelSerializer):
     class Meta:
